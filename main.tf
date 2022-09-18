@@ -161,3 +161,85 @@ resource "azurerm_key_vault_access_policy" "keyvault_policy" {
     "Get"
   ]
 }
+
+// Create the SignalR Service that will be used by the UI and Integration Engine
+resource "azurerm_signalr_service" "hub" {
+  name                  = "aafdSignalRDEVSignalRHub"
+  location              = azurerm_resource_group.rg.location
+  resource_group_name   = azurerm_resource_group.rg.name
+
+  sku {
+    name      = "Free_F1"
+    capacity  = 1
+  }
+
+  service_mode          = "Default"
+}
+
+// Create the App Registration that the UI will use to authenticate the user
+resource "azuread_application" "ui-auth" {
+  display_name                = "aafd-signalr-application-ui-dev001"
+  sign_in_audience            = "AzureADMyOrg"
+  owners                      = [data.azuread_client_config.current.object_id]
+
+  single_page_application {
+    redirect_uris = [
+      "http://localhost:3000/"
+    ]
+  }
+
+  optional_claims {
+    id_token {
+      name                  = "family_name"
+      source                = null
+      essential             = false
+      additional_properties = []
+    }
+
+    id_token {
+      name                  = "given_name"
+      source                = null
+      essential             = false
+      additional_properties = []
+    }
+  }
+
+  required_resource_access {
+    resource_app_id = "00000003-0000-0000-c000-000000000000" # Microsoft Graph
+
+    resource_access { // openid
+      id   = "e1fe6dd8-ba31-4d61-89e7-88639da4683d"
+      type = "Scope"
+    }
+
+    resource_access { // profile
+      id   = "37f7f235-527c-4136-accd-4a02d197296e"
+      type = "Scope"
+    }
+
+    resource_access { // email
+      id   = "64a6cdd6-aab1-4aaf-94b8-3cc8405e90d0"
+      type = "Scope"
+    }
+
+    resource_access { // User.Read
+      id   = "14dad69e-099b-42c9-810b-d002981feec1"
+      type = "Scope"
+    }
+  }
+
+  web {
+    implicit_grant {
+      id_token_issuance_enabled     = true
+    }
+  }
+
+  app_role {
+    id                    = "ba71c5ee-e3c2-454e-b60e-e8cb745290eb"
+    description           = "A user of the UI"
+    allowed_member_types  = ["User"]
+    display_name          = "User"
+    enabled               = true
+    value                 = "user"
+  }
+}
